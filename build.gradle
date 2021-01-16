@@ -1,0 +1,25 @@
+plugins {
+    // プラグインをidで指定することができる
+    id("application")
+}
+
+group 'org.example'
+version '1.0-SNAPSHOT'
+
+repositories {
+    // 依存性を解決する場所
+    mavenCentral()
+}
+dependencies {
+    // ライブラリのインストール
+    // 依存関係が伝搬しないらしい
+    implementation("com.slack.api:bolt-jetty:1.5.1")
+    implementation("org.slf4j:slf4j-simple:1.7.30")
+}
+application {
+    mainClassName = "hello.MyApp"
+}
+run {
+    // gradle run -DslackLogLevel=debug
+    systemProperty "org.slf4j.simpleLogger.log.com.slack.api", System.getProperty("slackLogLevel")
+}
