@@ -12,9 +12,11 @@ class HttpAccessor {
         return when (result) {
             is Result.Failure -> {
                 val ex = result.getException()
+                println(ex)
                 JSONObject(mapOf("message" to ex.toString()))
             }
             is Result.Success -> {
+                println(result.get())
                 result.get().obj()
             }
         }

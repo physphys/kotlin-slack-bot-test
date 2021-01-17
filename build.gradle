@@ -5,6 +5,7 @@ buildscript {
 plugins {
     // プラグインをidで指定することができる
     id("org.jetbrains.kotlin.jvm") version "1.4.21-2"
+    id 'org.jetbrains.kotlin.plugin.serialization' version "1.4.21-2"
     id("application")
 }
 
@@ -27,6 +28,9 @@ dependencies {
     implementation("com.github.kittinunf.fuel:fuel:$fuel_version")
     implementation("com.github.kittinunf.fuel:fuel-json:$fuel_version")
     compile group: 'org.json', name: 'json', version: '20180813'
+    implementation "org.jetbrains.kotlinx:kotlinx-serialization-json:1.0.1"
+    // log
+    implementation("org.slf4j:slf4j-simple:1.7.30")
 }
 application {
     mainClassName = "MyAppKt"
