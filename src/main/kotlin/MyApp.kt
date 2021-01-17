@@ -18,7 +18,7 @@ fun main() {
         val zipcodeResponse = format.decodeFromString<SearchAddressesByZipcodeResponse>(httpAccessor.getJson(url).toString())
 
         val address = zipcodeResponse.results.first().address1 + zipcodeResponse.results.first().address2 + zipcodeResponse.results.first().address3
-        ctx.ack(address)
+        ctx.ack { res -> res.responseType("in_channel").text("その郵便番号の住所は $address です。:+1:") }
     }
 
     val server = SlackAppServer(app)
