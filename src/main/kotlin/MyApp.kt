@@ -17,7 +17,8 @@ fun main() {
         val format = Json { ignoreUnknownKeys = true }
         val zipcodeResponse = format.decodeFromString<SearchAddressesByZipcodeResponse>(httpAccessor.getJson(url).toString())
 
-        ctx.ack(zipcodeResponse.status.toString())
+        val address = zipcodeResponse.results.first().address1 + zipcodeResponse.results.first().address2 + zipcodeResponse.results.first().address3
+        ctx.ack(address)
     }
 
     val server = SlackAppServer(app)
