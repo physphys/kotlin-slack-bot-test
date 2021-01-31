@@ -7,7 +7,6 @@ import com.slack.api.bolt.jetty.SlackAppServer
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.decodeFromString
 import utils.HttpAccessor
-import com.github.kittinunf.result.Result
 
 import views.SearchAddressesByZipcodeResponse
 
@@ -29,18 +28,17 @@ fun main() {
     }
 
     app.command("/jira") { req, ctx ->
-        val arguments = req.getPayload().getText().split(" ")
+        val (jiraCommand, issueSummary) = req.getPayload().getText().split(" ")
         var slackBotResponse = ""
 
-        if (arguments[0] == "create") {
-            // この中でAPIを叩く
+        if (jiraCommand == "create") {
             val url = "https://test-jira-ryoma.atlassian.net/rest/api/2/issue"
             val (_, _, result) = Fuel.post(url)
                 .jsonBody(
                     """
                     {
                         "fields": {
-                            "summary": "test",
+                            "summary": "$issueSummary",
                             "issuetype": {
                                 "id": "10002"
                             },
@@ -56,7 +54,7 @@ fun main() {
                 """.trimIndent()
                 )
                 .authentication()
-                .basic("ryoma.k.0224@gmail.com", "S45GUCnPgAlHel2V4XNHB0D3")
+                .basic(utils.config.jira.username, utils.config.jira.password)
                 .responseJson()
 
             val jiraTicketKey = result.get().obj()["key"].toString()

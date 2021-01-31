@@ -8,6 +8,11 @@ export SLACK_BOT_TOKEN=xoxb-...your-own-valid-one
 export SLACK_SIGNING_SECRET=123abc...your-own-valid-one
 ```
 
+```
+export JIRA_USERNAME=aaaaaa
+export JIRA_PASSWORD=bbbbbb
+```
+
 main メソッドを実行して、サーバープロセスを起動
 ```
 gradle run
