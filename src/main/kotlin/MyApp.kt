@@ -35,6 +35,7 @@ import com.slack.api.model.block.element.BlockElements.*
 import com.slack.api.model.view.Views.*
 import com.slack.api.model.view.View
 import com.slack.api.methods.response.views.ViewsOpenResponse
+import com.slack.api.model.block.element.MultiStaticSelectElement
 import java.util.HashMap
 
 import com.slack.api.model.view.ViewState
@@ -58,26 +59,50 @@ fun main() {
     }
 
     app.command("/jira") { req, ctx ->
-        val (jiraCommand, issueSummary) = req.getPayload().getText().split(" ")
-        var slackBotResponse = ""
+        val res = ctx.client().viewsOpen {
+            it
+                .triggerId(ctx.triggerId)
+                .view(buildJiraView())
+        }
+        if (res.isOk) ctx.ack()
+        else Response.builder().statusCode(500).body(res.error).build()
+    }
 
-        if (jiraCommand == "create") {
-            val url = "https://test-jira-ryoma.atlassian.net/rest/api/2/issue"
-            val (_, _, result) = Fuel.post(url)
+    app.viewSubmission("create-jira") { req, ctx ->
+        val stateValues = req.payload.view.state.values
+        val reporterID = stateValues["reporter-block"]!!["reporter-action"]!!.selectedOption.value
+        val summary = stateValues["summary-block"]!!["summary-action"]!!.value
+        val description = stateValues["description-block"]!!["description-action"]!!.value
+
+
+        // validation
+        val errors: MutableMap<String, String> = HashMap()
+        if (summary.length == 0) {
+            errors["summary-block"] = "タイトルを入力してください"
+        }
+
+        if (!errors.isEmpty()) {
+            return@viewSubmission ctx.ack { r: ViewSubmissionResponseBuilder ->
+                r.responseAction(
+                    "errors"
+                ).errors(errors)
+            }
+        } else {
+            val (_, _, result) = Fuel.post("https://test-jira-ryoma.atlassian.net/rest/api/2/issue")
                 .jsonBody(
                     """
                     {
                         "fields": {
-                            "summary": "$issueSummary",
+                            "summary": "$summary",
                             "issuetype": {
                                 "id": "10002"
                             },
                             "project": {
                                 "id": "10000"
                             },
-                            "description": "test",
+                            "description": "$description",
                             "reporter": {
-                                "id": "600401c7e2a13500694ddf32"
+                                "id": "$reporterID"
                             }
                         }
                     }
@@ -88,12 +113,12 @@ fun main() {
                 .responseJson()
 
             val jiraTicketKey = result.get().obj()["key"].toString()
-            slackBotResponse = """
+            val slackBotResponse = """
                     JIRAを起票しました。
                     https://test-jira-ryoma.atlassian.net/browse/$jiraTicketKey
                     """.trimIndent()
+            return@viewSubmission ctx.ack()
         }
-        ctx.ack { res -> res.responseType("in_channel").text(slackBotResponse) }
     }
 
     app.command("/meeting") { req, ctx ->
@@ -176,6 +201,60 @@ fun buildView(): View? {
                             ).multiline(true)
                         })
                         .label(plainText { pt -> pt.text("Detailed Agenda").emoji(true) })
+                }
+            ))
+    }
+}
+
+fun buildJiraView(): View? {
+    return view { view: ViewBuilder ->
+        view
+            .callbackId("create-jira")
+            .type("modal")
+            .notifyOnClose(true)
+            .title(viewTitle { title: ViewTitleBuilder ->
+                title.type("plain_text").text("Create JIRA")
+            })
+            .submit(viewSubmit { submit: ViewSubmitBuilder ->
+                submit.type("plain_text").text("作成")
+            })
+            .close(viewClose { close: ViewCloseBuilder ->
+                close.type("plain_text").text("キャンセル")
+            })
+            .blocks(asBlocks(
+                input { input: InputBlockBuilder ->
+                    input
+                        .blockId("reporter-block")
+                        .element(staticSelect { staticSelect: StaticSelectElementBuilder ->
+                            staticSelect.actionId("reporter-action")
+                                .placeholder(plainText("報告者を選んでください"))
+                                .options(
+                                    asOptions(
+                                        option(plainText("Ryoma Kawahara"), "600401c7e2a13500694ddf32"),
+                                    )
+                                )
+                        })
+                        .label(plainText("報告者"))
+                },
+                input { input: InputBlockBuilder ->
+                    input
+                        .blockId("summary-block")
+                        .element(plainTextInput { pti: PlainTextInputElementBuilder ->
+                            pti.actionId(
+                                "summary-action"
+                            ).multiline(false)
+                        })
+                        .label(plainText("タイトル"))
+                },
+                input { input: InputBlockBuilder ->
+                    input
+                        .blockId("description-block")
+                        .element(plainTextInput { pti: PlainTextInputElementBuilder ->
+                            pti.actionId(
+                                "description-action"
+                            ).multiline(true)
+                        })
+                        .label(plainText("詳細"))
                 }
             ))
     }
