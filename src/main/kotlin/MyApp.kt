@@ -5,11 +5,9 @@ import com.github.kittinunf.fuel.json.responseJson
 import com.slack.api.app_backend.views.response.ViewSubmissionResponse.ViewSubmissionResponseBuilder
 import com.slack.api.bolt.App
 import com.slack.api.bolt.context.builtin.ViewSubmissionContext
-import com.slack.api.bolt.handler.builtin.ViewSubmissionHandler
 import com.slack.api.bolt.jetty.SlackAppServer
 import com.slack.api.bolt.request.builtin.ViewSubmissionRequest
 import com.slack.api.bolt.response.Response
-import com.slack.api.bolt.util.BuilderConfigurator
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.decodeFromString
 
@@ -34,12 +32,7 @@ import com.slack.api.model.block.composition.BlockCompositions.*
 import com.slack.api.model.block.element.BlockElements.*
 import com.slack.api.model.view.Views.*
 import com.slack.api.model.view.View
-import com.slack.api.methods.response.views.ViewsOpenResponse
-import com.slack.api.model.block.element.MultiStaticSelectElement
 import java.util.HashMap
-
-import com.slack.api.model.view.ViewState
-
 
 fun main() {
     val app = App()
@@ -112,11 +105,14 @@ fun main() {
                 .basic(utils.config.jira.username, utils.config.jira.password)
                 .responseJson()
 
-            val jiraTicketKey = result.get().obj()["key"].toString()
+            val format = Json { ignoreUnknownKeys = true }
+            val jiraResponse =
+                format.decodeFromString<views.CreateJiraResponse>(result.get().obj().toString())
             val slackBotResponse = """
                     JIRAを起票しました。
-                    https://test-jira-ryoma.atlassian.net/browse/$jiraTicketKey
+                    https://test-jira-ryoma.atlassian.net/browse/${jiraResponse.key}
                     """.trimIndent()
+            println(slackBotResponse)
             return@viewSubmission ctx.ack()
         }
     }
@@ -207,6 +203,22 @@ fun buildView(): View? {
 }
 
 fun buildJiraView(): View? {
+    val (_, _, result) = Fuel.get("https://test-jira-ryoma.atlassian.net/rest/api/2/user/assignable/search?project=TEST")
+        .authentication()
+        .basic(utils.config.jira.username, utils.config.jira.password)
+        .responseJson()
+
+    // TODO: parse処理が必要
+    // array jsonをうまく処理する
+    JSON.parse<views.SearchJiraUsersResponse>(views.SearchJiraUsersResponseItem.serializer().list, result.get().obj().toString())
+
+//    val reporters = arrayOf(
+//        option(plainText("Ryoma Kawahara"), "600401c7e2a13500694ddf32"),
+//        option(plainText("Ryoma Kawahara"), "600401c7e2a13500694ddf32")
+//    )
+
+    val reporters = jiraResponse.map { option(plainText(it.displayName), it.accountId) }
+
     return view { view: ViewBuilder ->
         view
             .callbackId("create-jira")
@@ -230,7 +242,7 @@ fun buildJiraView(): View? {
                                 .placeholder(plainText("報告者を選んでください"))
                                 .options(
                                     asOptions(
-                                        option(plainText("Ryoma Kawahara"), "600401c7e2a13500694ddf32"),
+                                        *reporters.toTypedArray()
                                     )
                                 )
                         })
